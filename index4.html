@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>英単語トレーナー</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700;900&family=Nunito:wght@700;800;900&display=swap');
+
+  :root {
+    --bg: #f0f7ff;
+    --surface: #ffffff;
+    --card: #ffffff;
+    --accent: #4caf82;
+    --accent2: #ff6b8a;
+    --accent3: #4a90d9;
+    --accent4: #ffb347;
+    --text: #2d3a4a;
+    --muted: #8a9ab0;
+    --border: #d8e8f5;
+    --shadow: 0 4px 16px rgba(74,144,217,0.10);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: linear-gradient(135deg, #e8f4fd 0%, #f0f7ff 50%, #fef9f0 100%);
+    color: var(--text);
+    font-family: 'Noto Sans JP', sans-serif;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 20px;
+  }
+
+  header {
+    width: 100%; max-width: 600px;
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 12px 0 24px;
+    border-bottom: 2px solid var(--border);
+    margin-bottom: 24px;
+  }
+  .title { font-family:'Nunito',sans-serif; font-size:18px; color:var(--accent3); letter-spacing:1px; font-weight:900; }
+  .progress-info { font-size:13px; color:var(--muted); font-weight:700; }
+
+  .progress-bar { width:100%; max-width:600px; height:8px; background:var(--border); border-radius:99px; margin-bottom:20px; overflow:hidden; }
+  .progress-fill { height:100%; background:linear-gradient(90deg,var(--accent),var(--accent3)); border-radius:99px; transition:width 0.5s ease; }
+
+  .steps { display:flex; gap:8px; margin-bottom:20px; width:100%; max-width:600px; }
+  .step { flex:1; padding:8px 12px; border-radius:99px; font-size:12px; font-weight:700; text-align:center; border:2px solid var(--border); color:var(--muted); transition:all 0.3s; background:white; }
+  .step.active { border-color:var(--accent3); color:var(--accent3); background:#e8f2fd; }
+  .step.done { border-color:var(--border); color:var(--muted); background:#f5f5f5; text-decoration:line-through; }
+
+  .card { width:100%; max-width:600px; background:var(--card); border:2px solid var(--border); border-radius:24px; padding:32px 28px; position:relative; overflow:hidden; box-shadow:var(--shadow); }
+  .card::before { content:''; position:absolute; top:0; left:0; right:0; height:6px; background:linear-gradient(90deg,var(--accent),var(--accent3),var(--accent4)); border-radius:24px 24px 0 0; }
+
+  .word-number { font-size:12px; color:var(--muted); margin-bottom:20px; font-weight:700; }
+
+  /* Play button */
+  .speak-btn {
+    width:100%; padding:28px;
+    background:linear-gradient(135deg,#e8f7f0,#e8f2fd);
+    border:3px solid var(--accent3); border-radius:20px;
+    color:var(--accent3); font-size:44px;
+    cursor:pointer; transition:all 0.2s;
+    display:flex; flex-direction:column; align-items:center; gap:10px;
+    box-shadow:0 4px 12px rgba(74,144,217,0.15);
+  }
+  .speak-btn:hover { transform:scale(1.02); box-shadow:0 6px 20px rgba(74,144,217,0.25); }
+  .speak-btn .label { font-size:13px; font-weight:700; letter-spacing:1px; color:var(--accent3); }
+  .speak-btn.playing { animation:pulse-green 0.8s ease-in-out infinite alternate; }
+  @keyframes pulse-green {
+    from { border-color:var(--accent); box-shadow:0 4px 12px rgba(76,175,130,0.3); }
+    to   { border-color:var(--accent3); box-shadow:0 4px 24px rgba(74,144,217,0.4); }
+  }
+
+  /* Mic button */
+  .mic-area { display:flex; flex-direction:column; align-items:center; gap:14px; margin:8px 0 18px; }
+  .mic-btn {
+    width:96px; height:96px; border-radius:50%;
+    border:3px solid var(--accent2);
+    background:linear-gradient(135deg,#fff0f4,#ffe8ed);
+    color:var(--accent2); font-size:36px;
+    cursor:pointer; transition:all 0.2s;
+    display:flex; align-items:center; justify-content:center;
+    position:relative;
+    box-shadow:0 4px 12px rgba(255,107,138,0.2);
+  }
+  .mic-btn:hover { transform:scale(1.05); box-shadow:0 6px 20px rgba(255,107,138,0.35); }
+  .mic-btn.listening {
+    border-color:var(--accent2);
+    background:linear-gradient(135deg,#ffe0e8,#ffd0da);
+    animation:pulse-red 0.7s ease-in-out infinite alternate;
+  }
+  @keyframes pulse-red {
+    from { box-shadow:0 4px 12px rgba(255,107,138,0.4); }
+    to   { box-shadow:0 4px 28px rgba(255,107,138,0.7); }
+  }
+  .mic-btn.listening::after {
+    content:''; position:absolute; inset:-10px; border-radius:50%;
+    border:3px solid rgba(255,107,138,0.3);
+    animation:ripple 1s ease-out infinite;
+  }
+  @keyframes ripple { from{transform:scale(1);opacity:1;} to{transform:scale(1.6);opacity:0;} }
+
+  .mic-status { font-size:12px; color:var(--muted); font-weight:700; text-align:center; min-height:18px; }
+  .mic-status.active { color:var(--accent2); }
+
+  .heard-text {
+    width:100%; min-height:52px;
+    background:#f8fbff; border:2px solid var(--border); border-radius:14px;
+    display:flex; align-items:center; justify-content:center;
+    font-size:20px; color:var(--text); font-weight:700;
+    padding:12px 18px; text-align:center; transition:border-color 0.3s;
+  }
+  .heard-text.correct { border-color:var(--accent); color:var(--accent); background:#f0faf5; }
+  .heard-text.wrong   { border-color:var(--accent2); color:var(--accent2); background:#fff5f7; }
+  .heard-text.empty   { color:var(--muted); font-size:13px; font-weight:400; }
+
+  .feedback { display:none; padding:14px 18px; border-radius:14px; font-size:14px; margin-bottom:12px; align-items:flex-start; gap:10px; }
+  .feedback.show { display:flex; }
+  .feedback.ok { background:#f0faf5; border:2px solid var(--accent); color:#2d7a55; }
+  .feedback.ng { background:#fff5f7; border:2px solid var(--accent2); color:#d0405a; }
+  .feedback-icon { font-size:20px; flex-shrink:0; }
+  .feedback-text { line-height:1.6; font-weight:700; }
+  .correct-answer { font-weight:900; font-size:18px; }
+
+  .question-label { font-size:14px; color:var(--muted); margin-bottom:10px; font-weight:700; }
+  .replaying-hint { font-size:12px; color:var(--accent3); margin-bottom:16px; font-weight:700; cursor:pointer; display:inline-flex; align-items:center; gap:6px; opacity:0.8; }
+  .replaying-hint:hover { opacity:1; }
+
+  .btn-row { display:flex; gap:10px; margin-top:12px; }
+  .btn { flex:1; padding:16px; border-radius:14px; border:none; font-family:'Noto Sans JP',sans-serif; font-size:15px; cursor:pointer; transition:all 0.2s; font-weight:700; }
+  .btn-primary { background:linear-gradient(135deg,var(--accent3),#6ab0f0); color:white; box-shadow:0 4px 12px rgba(74,144,217,0.3); }
+  .btn-primary:hover { transform:translateY(-2px); box-shadow:0 6px 18px rgba(74,144,217,0.4); }
+  .btn-primary:disabled { opacity:0.35; cursor:not-allowed; transform:none; box-shadow:none; }
+  .btn-secondary { background:#f0f4f8; color:var(--muted); border:2px solid var(--border); }
+  .btn-secondary:hover { color:var(--text); border-color:var(--muted); background:#e8eef4; }
+
+  /* Result */
+  #result-screen { display:none; width:100%; max-width:600px; text-align:center; }
+  .result-big { font-size:72px; font-family:'Nunito',sans-serif; font-weight:900; background:linear-gradient(135deg,var(--accent),var(--accent3)); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; margin-bottom:8px; }
+  .result-label { font-size:15px; color:var(--muted); margin-bottom:32px; font-weight:700; }
+  .missed-list { background:white; border:2px solid var(--border); border-radius:20px; padding:20px; margin-bottom:24px; text-align:left; box-shadow:var(--shadow); }
+  .missed-title { font-size:12px; font-weight:900; color:var(--accent2); letter-spacing:2px; margin-bottom:14px; }
+  .missed-item { display:flex; justify-content:space-between; padding:10px 0; border-bottom:1px solid var(--border); font-size:15px; font-weight:700; }
+  .missed-item:last-child { border-bottom:none; }
+  .missed-en { color:var(--accent3); }
+  .missed-ja { color:var(--muted); }
+
+  /* Set selector */
+  #set-screen { width:100%; max-width:600px; text-align:center; }
+  .set-title { font-family:'Nunito',sans-serif; font-size:26px; color:var(--accent3); margin-bottom:6px; font-weight:900; }
+  .set-sub { font-size:14px; color:var(--muted); margin-bottom:28px; font-weight:700; }
+  .set-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-bottom:16px; }
+  .set-btn { padding:16px 10px; background:white; border:2px solid var(--border); border-radius:16px; color:var(--text); font-family:'Noto Sans JP',sans-serif; font-size:13px; font-weight:700; cursor:pointer; transition:all 0.2s; line-height:1.6; box-shadow:0 2px 8px rgba(74,144,217,0.08); }
+  .set-btn:hover { border-color:var(--accent3); color:var(--accent3); background:#f0f7ff; transform:translateY(-2px); }
+  .set-btn.selected { border-color:var(--accent3); color:var(--accent3); background:#e8f2fd; }
+  .set-btn .count { display:block; color:var(--muted); font-size:11px; margin-top:4px; }
+  .all-btn { width:100%; padding:16px; background:white; border:2px solid var(--border); border-radius:14px; color:var(--muted); font-family:'Noto Sans JP',sans-serif; font-size:13px; font-weight:700; cursor:pointer; transition:all 0.2s; margin-bottom:16px; }
+  .all-btn:hover { border-color:var(--accent3); color:var(--accent3); background:#f0f7ff; }
+
+  .fade-in { animation:fadeIn 0.3s ease; }
+  @keyframes fadeIn { from{opacity:0;transform:translateY(8px);} to{opacity:1;transform:translateY(0);} }
+
+  /* モード切り替え */
+  .mode-toggle { display:flex; gap:8px; margin-bottom:16px; }
+  .mode-btn { flex:1; padding:10px; border-radius:10px; border:2px solid var(--border); background:white; color:var(--muted); font-family:'Noto Sans JP',sans-serif; font-size:13px; font-weight:700; cursor:pointer; transition:all 0.2s; }
+  .mode-btn.active { border-color:var(--accent3); color:var(--accent3); background:#e8f2fd; }
+
+  /* タイピング入力 */
+  .answer-input { width:100%; padding:18px 20px; background:#f8fbff; border:2px solid var(--border); border-radius:14px; color:var(--text); font-size:22px; font-weight:700; font-family:'Noto Sans JP',sans-serif; outline:none; transition:border-color 0.2s; margin-bottom:16px; }
+  .answer-input:focus { border-color:var(--accent3); background:white; }
+  .answer-input.correct { border-color:var(--accent); background:#f0faf5; }
+  .answer-input.wrong { border-color:var(--accent2); background:#fff5f7; }
+</style>
+</head>
+<body>
+
+<!-- SET SELECT -->
+<div id="set-screen" class="fade-in">
+  <div style="margin:20px 0 40px;">
+    <div class="set-title">🌟 えいご たんご</div>
+    <div class="set-sub">🎤 声で答える！英検5級 単語練習</div>
+  </div>
+  <div class="set-grid" id="set-grid"></div>
+  <button class="all-btn" onclick="startAll()">🗂 全単語まとめて練習</button>
+  <button class="btn btn-primary" id="start-btn" onclick="startSelected()" style="width:100%;padding:16px;font-size:15px;" disabled>スタート →</button>
+</div>
+
+<!-- QUIZ -->
+<div id="quiz-screen" style="display:none;width:100%;max-width:600px;">
+  <header>
+    <span class="title">🌟 えいご たんご</span>
+    <span class="progress-info" id="progress-info">0 / 0</span>
+  </header>
+  <div class="progress-bar"><div class="progress-fill" id="progress-fill" style="width:0%"></div></div>
+  <div class="steps">
+    <div class="step active" id="s1">① 音声</div>
+    <div class="step" id="s2">② 日本語訳</div>
+    <div class="step" id="s3">③ スペル</div>
+  </div>
+
+  <div class="card fade-in" id="quiz-card">
+    <div class="word-number" id="word-num">単語 1</div>
+
+    <!-- STEP 1 -->
+    <div id="step1">
+      <div style="font-size:13px;color:var(--muted);margin-bottom:20px;">音声を聞いて、単語を確認しよう</div>
+      <button class="speak-btn" id="speak-btn" onclick="playAudio()">
+        <span>🔊</span>
+        <span class="label">TAP TO LISTEN</span>
+      </button>
+      <div class="btn-row" style="margin-top:20px;">
+        <button class="btn btn-primary" id="next-to-step2" onclick="goStep2()" disabled>日本語訳を答える →</button>
+      </div>
+    </div>
+
+    <!-- STEP 2 -->
+    <div id="step2" style="display:none">
+      <div class="question-label">この単語の <strong>日本語訳</strong> を答えよう</div>
+      <div class="replaying-hint" onclick="playAudio()">🔊 もう一度聞く</div>
+      <!-- 切り替えタブ -->
+      <div class="mode-toggle">
+        <button class="mode-btn active" id="mode-jp-voice" onclick="setMode('jp','voice')">🎤 音声</button>
+        <button class="mode-btn" id="mode-jp-type" onclick="setMode('jp','type')">⌨️ タイピング</button>
+      </div>
+      <!-- 音声UI -->
+      <div id="jp-voice-ui">
+        <div class="mic-area">
+          <button class="mic-btn" id="mic-jp" onclick="startListen('jp')">🎤</button>
+          <div class="mic-status" id="mic-status-jp">タップして話す（日本語）</div>
+        </div>
+        <div class="heard-text empty" id="heard-jp">ここに聞き取った言葉が表示されます</div>
+      </div>
+      <!-- タイピングUI -->
+      <div id="jp-type-ui" style="display:none">
+        <input class="answer-input" id="jp-input" type="text" placeholder="日本語で入力…" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
+          onkeydown="if(event.key==='Enter')checkJp()">
+      </div>
+      <div class="feedback" id="jp-feedback"><span class="feedback-icon"></span><div class="feedback-text"></div></div>
+      <div class="btn-row">
+        <button class="btn btn-secondary" onclick="skipStep('jp')">わからない</button>
+        <button class="btn btn-primary" id="jp-check-btn" onclick="checkJp()" disabled>答え合わせ</button>
+      </div>
+    </div>
+
+    <!-- STEP 3 -->
+    <div id="step3" style="display:none">
+      <div class="question-label" id="step3-label">スペルを答えよう</div>
+      <div class="replaying-hint" onclick="playAudio()">🔊 英語音声を聞く</div>
+      <!-- 切り替えタブ -->
+      <div class="mode-toggle">
+        <button class="mode-btn active" id="mode-sp-voice" onclick="setMode('sp','voice')">🎤 音声</button>
+        <button class="mode-btn" id="mode-sp-type" onclick="setMode('sp','type')">⌨️ タイピング</button>
+      </div>
+      <!-- 音声UI -->
+      <div id="sp-voice-ui">
+        <div class="mic-area">
+          <button class="mic-btn" id="mic-sp" onclick="startListen('sp')">🎤</button>
+          <div class="mic-status" id="mic-status-sp">タップして1文字ずつ言う</div>
+        </div>
+        <div class="heard-text empty" id="heard-sp">ここに聞き取った言葉が表示されます</div>
+      </div>
+      <!-- タイピングUI -->
+      <div id="sp-type-ui" style="display:none">
+        <input class="answer-input" id="sp-input" type="text" placeholder="英語でスペルを入力…" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
+          onkeydown="if(event.key==='Enter')checkSpell()">
+      </div>
+      <div class="feedback" id="sp-feedback"><span class="feedback-icon"></span><div class="feedback-text"></div></div>
+      <div class="btn-row">
+        <button class="btn btn-secondary" onclick="skipStep('sp')">わからない</button>
+        <button class="btn btn-primary" id="sp-check-btn" onclick="checkSpell()" disabled>答え合わせ</button>
+      </div>
+    </div>
+
+    <!-- NEXT -->
+    <div id="step-next" style="display:none;margin-top:16px;">
+      <button class="btn btn-primary" style="width:100%;" onclick="nextWord()">次の単語 →</button>
+    </div>
+  </div>
+</div>
+
+<!-- RESULT -->
+<div id="result-screen">
+  <div style="margin:32px 0 16px;">
+    <div class="result-big" id="result-score">0/0</div>
+    <div class="result-label">スペル正解</div>
+  </div>
+  <div class="missed-list" id="missed-list" style="display:none">
+    <div class="missed-title">MISSED WORDS</div>
+    <div id="missed-items"></div>
+  </div>
+  <div class="btn-row" style="max-width:600px;margin:0 auto;">
+    <button class="btn btn-secondary" style="flex:1;" onclick="backToMenu()">セット選択に戻る</button>
+    <button class="btn btn-primary" style="flex:1;" onclick="retryMissed()" id="retry-btn">間違いを再練習</button>
+  </div>
+</div>
+
+<script>
+// ── Word data ──
+const ALL_WORDS = [
+  {en:"teacher",ja:"先生"},{en:"brother",ja:"兄弟"},{en:"father",ja:"父"},
+  {en:"animal",ja:"動物"},{en:"classroom",ja:"教室"},{en:"chair",ja:"いす"},
+  {en:"flower",ja:"花"},{en:"bird",ja:"鳥"},{en:"friend",ja:"友達"},
+  {en:"children",ja:"子どもたち"},
+  {en:"station",ja:"駅"},{en:"train",ja:"電車"},{en:"spring",ja:"春"},
+  {en:"park",ja:"公園"},{en:"room",ja:"部屋"},{en:"window",ja:"窓"},
+  {en:"math",ja:"数学"},{en:"baseball",ja:"野球"},{en:"picture",ja:"絵"},
+  {en:"school",ja:"学校"},
+  {en:"girl",ja:"女の子"},{en:"car",ja:"車"},{en:"family",ja:"家族"},
+  {en:"shoe",ja:"靴"},{en:"movie",ja:"映画"},{en:"textbook",ja:"教科書"},
+  {en:"sister",ja:"姉妹"},{en:"mother",ja:"母"},{en:"fall",ja:"秋"},
+  {en:"English",ja:"英語"},
+  {en:"color",ja:"色"},{en:"buy",ja:"買う"},{en:"birthday",ja:"誕生日"},
+  {en:"come",ja:"来る"},{en:"breakfast",ja:"朝食"},{en:"time",ja:"時間"},
+  {en:"cry",ja:"泣く"},{en:"cut",ja:"切る"},{en:"begin",ja:"始める"},
+  {en:"ask",ja:"聞く"},
+  {en:"live",ja:"住む"},{en:"eat",ja:"食べる"},{en:"hear",ja:"聞こえる"},
+  {en:"give",ja:"あげる"},{en:"find",ja:"見つける"},{en:"enjoy",ja:"楽しむ"},
+  {en:"know",ja:"知っている"},{en:"need",ja:"必要とする"},{en:"have",ja:"持っている"},
+  {en:"do",ja:"する"},
+  {en:"help",ja:"助ける"},{en:"get",ja:"もらう"},{en:"month",ja:"月"},
+  {en:"make",ja:"作る"},{en:"music",ja:"音楽"},{en:"like",ja:"好きだ"},
+  {en:"listen",ja:"聞く"},{en:"call",ja:"呼ぶ"},{en:"meet",ja:"会う"},
+  {en:"year",ja:"年"},
+  {en:"sing",ja:"歌う"},{en:"read",ja:"読む"},{en:"teach",ja:"教える"},
+  {en:"think",ja:"考える"},{en:"walk",ja:"歩く"},{en:"speak",ja:"話す"},
+  {en:"run",ja:"走る"},{en:"study",ja:"勉強する"},{en:"see",ja:"見る"},
+  {en:"stand",ja:"立つ"},
+  {en:"beautiful",ja:"美しい"},{en:"Chinese",ja:"中国語"},{en:"write",ja:"書く"},
+  {en:"watch",ja:"見る"},{en:"easy",ja:"簡単な"},{en:"famous",ja:"有名な"},
+  {en:"favorite",ja:"お気に入り"},{en:"cloudy",ja:"曇り"},{en:"cute",ja:"かわいい"},
+  {en:"work",ja:"働く"},
+  {en:"wash",ja:"洗う"},{en:"use",ja:"使う"},{en:"put",ja:"置く"},
+  {en:"take",ja:"取る"},{en:"talk",ja:"話す"},{en:"want",ja:"欲しい"},
+  {en:"cold",ja:"寒い"},{en:"all",ja:"すべて"},{en:"every",ja:"毎"},
+  {en:"delicious",ja:"おいしい"},
+  {en:"large",ja:"大きい"},{en:"many",ja:"多くの"},{en:"high",ja:"高い"},
+  {en:"old",ja:"古い"},{en:"Japanese",ja:"日本語"},{en:"new",ja:"新しい"},
+  {en:"late",ja:"遅い"},{en:"next",ja:"次の"},{en:"popular",ja:"人気の"},
+  {en:"only",ja:"だけ"},
+  {en:"slow",ja:"遅い"},{en:"soft",ja:"柔らかい"},{en:"sad",ja:"悲しい"},
+  {en:"tall",ja:"背が高い"},{en:"sick",ja:"病気"},{en:"tired",ja:"疲れた"},
+  {en:"young",ja:"若い"},{en:"always",ja:"いつも"},{en:"sure",ja:"確か"},
+  {en:"smart",ja:"賢い"},
+  {en:"little",ja:"小さい"},{en:"long",ja:"長い"},{en:"hungry",ja:"お腹が空いた"},
+  {en:"pretty",ja:"きれい"},{en:"short",ja:"短い"},{en:"also",ja:"また"},
+  {en:"sunny",ja:"晴れ"},{en:"rainy",ja:"雨"},{en:"windy",ja:"風"},
+  {en:"warm",ja:"暖かい"},
+  {en:"today",ja:"今日"},{en:"together",ja:"一緒に"},{en:"here",ja:"ここ"},
+  {en:"please",ja:"どうか"},{en:"there",ja:"そこ"},{en:"well",ja:"上手に"},
+  {en:"yesterday",ja:"昨日"},{en:"tonight",ja:"今夜"}
+];
+
+const SETS = Array.from({length:13}, (_,i) => ({
+  label:`No.${i+1}`,
+  words: ALL_WORDS.slice(i*10, Math.min(i*10+10, ALL_WORDS.length))
+}));
+
+// ── State ──
+let queue=[], current=0, currentStep=1;
+let missedWords=[], spellCorrect=0, spellTotal=0;
+let selectedSets=new Set();
+let recognition=null;
+let heardJp='', heardSp='';
+let inputMode = {jp:'voice', sp:'voice'}; // 'voice' or 'type'
+
+const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+// ── モード切り替え ──
+function setMode(target, mode){
+  inputMode[target]=mode;
+  // ボタンの見た目
+  document.getElementById(`mode-${target}-voice`).classList.toggle('active', mode==='voice');
+  document.getElementById(`mode-${target}-type`).classList.toggle('active', mode==='type');
+  // UI表示切り替え
+  document.getElementById(`${target}-voice-ui`).style.display= mode==='voice'?'block':'none';
+  document.getElementById(`${target}-type-ui`).style.display= mode==='type'?'block':'none';
+  // タイピングモードに切り替えたら入力欄を有効化
+  const checkBtn=document.getElementById(`${target==='jp'?'jp':'sp'}-check-btn`);
+  if(mode==='type'){
+    checkBtn.disabled=false;
+    const inputEl=document.getElementById(`${target}-input`);
+    inputEl.value='';
+    setTimeout(()=>inputEl.focus(),100);
+  } else {
+    checkBtn.disabled=true;
+  }
+  // 認識中なら止める
+  if(recognition){recognit
+
+  
